@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { showStop } = defineProps(['showStop'])
 const emit = defineEmits<{
   (
     e: 'onSend',
@@ -8,19 +9,24 @@ const emit = defineEmits<{
       textarea: string
     },
   ): void
+  (e: 'onStop'): void
 }>()
 
 import { reactive } from 'vue'
-import { Picture, Promotion, Upload } from '@element-plus/icons-vue'
+import { Picture, Promotion, Upload, VideoPause } from '@element-plus/icons-vue'
 
 const modelOptions = [
   {
-    value: 'DeepSeek-R1',
+    value: 'deepseek-reasoner',
     label: 'DeepSeek-R1',
+  },
+  {
+    value: 'deepseek-chat',
+    label: 'DeepSeek-V3',
   },
 ]
 const data = reactive({
-  modelVal: 'DeepSeek-R1',
+  modelVal: 'deepseek-chat',
   textarea: '',
   isUseKnowledge: false,
 })
@@ -29,12 +35,14 @@ const toggleIsUseKnowledge = () => {
   data.isUseKnowledge = !data.isUseKnowledge
 }
 const handleSend = () => {
-  if (!data.textarea) return
+  if (!data.textarea.trim()) return
   emit('onSend', data)
   data.textarea = ''
 }
 
 const handleKeydown = (event: KeyboardEvent) => {
+  if (showStop) return
+
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault()
     handleSend()
@@ -48,7 +56,7 @@ const handleKeydown = (event: KeyboardEvent) => {
       v-model="data.textarea"
       resize="none"
       type="textarea"
-      autosize
+      :autosize="{ minRows: 3, maxRows: 8 }"
       placeholder="有问题，尽管问，shift+enter换行"
       @keydown="handleKeydown"
     />
@@ -72,21 +80,30 @@ const handleKeydown = (event: KeyboardEvent) => {
         >
       </div>
 
-      <div>
+      <div class="icon-content">
         <el-icon class="footer-icon" :size="18" style="margin-right: 7px">
           <Picture />
         </el-icon>
+
         <el-icon class="footer-icon" :size="18" style="margin-right: 7px">
           <Upload />
         </el-icon>
+
         <el-icon
+          v-show="!showStop"
           class="footer-icon"
           :size="18"
-          :color="data.textarea ? '#5687ff' : ''"
+          :color="data.textarea.trim() ? '#5687ff' : ''"
           @click="handleSend"
         >
           <Promotion />
         </el-icon>
+
+        <el-tooltip effect="light" content="停止生成" placement="top">
+          <el-icon v-show="showStop" class="footer-icon" :size="18" @click="emit('onStop')">
+            <VideoPause />
+          </el-icon>
+        </el-tooltip>
       </div>
     </div>
   </div>
@@ -100,6 +117,7 @@ const handleKeydown = (event: KeyboardEvent) => {
   padding-bottom: 10px;
   padding-top: 10px;
   border-radius: 4px;
+  flex-shrink: 0;
 
   .text-area-footer {
     display: flex;
@@ -112,6 +130,7 @@ const handleKeydown = (event: KeyboardEvent) => {
     cursor: pointer;
   }
 }
+
 :deep(.el-textarea__inner) {
   min-height: 80px !important;
   max-height: 300px;

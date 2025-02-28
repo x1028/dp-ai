@@ -3,16 +3,39 @@ import { useRouter } from 'vue-router'
 import { Edit } from '@element-plus/icons-vue'
 
 import CustomTxtArea from '@/components/CustomTxtArea.vue'
-import { uuid } from '@/uitls'
+import ChatItem from '@/components/ChatItem.vue'
 import useDataByParams from '@/hooks/useDataByParams'
+import ChatContainer from '@/components/ChatContainer.vue'
+import useChatFetch from '@/hooks/useChatFetch'
+import { scrollIntoView, uuid } from '@/uitls'
+import { stateMap, defaultConfig } from '@/http/streamFetch'
+import { useCommonStore } from '@/stores/common'
+
+const SCROLL_TARGET_ELEMENT_ID = 'agent-scroll-target'
 
 const { paramsId, currentAgent, currentChatList, addChatData, addDialogHistory } = useDataByParams()
+const { state, fetchChat, cancelFetch } = useChatFetch()
 const router = useRouter()
+const { setAddChatId } = useCommonStore()
 
 const handleTxtSend = (data: any) => {
   if (typeof paramsId.value === 'string') {
+    let val = paramsId.value
+
+    const config = {
+      model: data?.modelVal || 'deepseek-chat',
+      messages: [
+        {
+          role: 'user',
+          content: data?.textarea,
+        },
+      ],
+      ...defaultConfig,
+    }
+
     if (!paramsId.value) {
       const id = uuid()
+      val = id
       router.push(`/chat/${id}`)
 
       addDialogHistory({
@@ -20,69 +43,72 @@ const handleTxtSend = (data: any) => {
         title: data?.textarea,
         targetUrl: `/chat/${id}`,
       })
-
+      setAddChatId(id)
       return
     }
-    addChatData(paramsId.value, data?.textarea)
+
+    if (val === paramsId.value) {
+      addChatData(val, {
+        content: data?.textarea,
+        role: 'user',
+        id: uuid(),
+      })
+      scrollIntoView(SCROLL_TARGET_ELEMENT_ID)
+    }
+
+    const fetchCB = (data: any) => {
+      addChatData(val as string, {
+        content: data?.choices[0]?.delta?.content || '',
+        reasonContent: data?.choices[0]?.delta?.reasoning_content || '',
+        role: data?.choices[0]?.delta?.role,
+        id: data?.id,
+      })
+      scrollIntoView(SCROLL_TARGET_ELEMENT_ID)
+    }
+
+    // fetchChat(config, fetchCB)
   }
 }
 </script>
 
 <template>
-  <div class="head">
-    <div class="title" @click="router.push('/')">
-      {{ currentAgent?.title || '新对话' }}
-    </div>
-    <el-icon>
-      <Edit :size="30" />
-    </el-icon>
-  </div>
-
-  <div class="content">
-    <div class="chat-list">
-      <div class="chat-item">
+  <ChatContainer>
+    <template v-slot:header>
+      <div class="title" @click="router.push('/')">
+        {{ currentAgent?.title || '新对话' }}
+      </div>
+      <el-icon>
+        <Edit :size="30" />
+      </el-icon>
+    </template>
+    <template v-slot:chatItem>
+      <div class="chat-item" style="padding: 10px">
         Hi~我是{{
           currentAgent?.title ||
           '小贝，你身边的智能助手，可以为你答疑解惑、精读文档。让小贝助你轻松工作。'
         }}
       </div>
-      <div class="chat-item" v-for="(item, index) in currentChatList" :key="index">{{ item }}</div>
-    </div>
-
-    <CustomTxtArea @on-send="handleTxtSend" />
-  </div>
+      <ChatItem
+        :currentChatList="currentChatList"
+        :stateMap="stateMap"
+        :state="state"
+        :scroll-id="SCROLL_TARGET_ELEMENT_ID"
+      />
+    </template>
+    <template v-slot:txtArea>
+      <CustomTxtArea :showStop="state !== 'done'" @on-send="handleTxtSend" @on-stop="cancelFetch" />
+    </template>
+  </ChatContainer>
 </template>
 
 <style scoped>
-.head {
-  display: flex;
-  justify-content: space-between;
-  font-size: 16px;
+.chat-item {
+  position: relative;
+  background-color: #eff6ff;
+  border-radius: 4px;
+  padding: 0 10px;
   color: #393939;
-}
-
-.content {
-  margin: 0 auto;
-  padding: 40px 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
-  height: 100%;
-  width: 70%;
-
-  .chat-list {
-    width: 100%;
-    height: calc(100vh - 270px);
-    overflow-y: auto;
-
-    .chat-item {
-      background-color: #eff6ff;
-      border-radius: 4px;
-      padding: 10px;
-      color: #393939;
-      margin-bottom: 10px;
-    }
-  }
+  margin-bottom: 10px;
+  line-height: 1.4;
 }
 </style>

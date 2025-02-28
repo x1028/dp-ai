@@ -1,5 +1,5 @@
 import { ref, computed, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 
 import { useCommonStore } from '@/stores/common'
 
@@ -24,7 +24,7 @@ export default function useDataByParams() {
   watch(
     () => route.params,
     (newValue) => {
-      paramsId.value = newValue?.id
+      paramsId.value = newValue?.id ?? ''
     },
   )
 

@@ -36,7 +36,7 @@ const defaultDialogHistoryList = [
   {
     key: '11',
     title: '国家推广新能源私家车是否会导致燃油车急剧减少',
-    targetUrl: '/chat/11',
+    targetUrl: `/chat/11`,
   },
   {
     key: '12',
@@ -70,9 +70,11 @@ export const useCommonStore = defineStore('counter', () => {
   const dialogHistoryList = shallowRef(defaultDialogHistoryList)
   const userInfo = ref({
     avatar: Avatar,
-    name: '用户1',
+    name: '张宇',
     role: '产品经理',
   })
+
+  const addChatId = ref('')
 
   const chatData = reactive<Record<string, any[]>>({})
 
@@ -92,23 +94,47 @@ export const useCommonStore = defineStore('counter', () => {
     intelligentAgents.value = intelligentAgents.value.filter((agent) => agent.key !== key)
   }
 
-  const addChatData = (key: string, data: string) => {
-    if (chatData[key]) {
-      chatData[key].push(data)
+  const addChatData = (
+    key: string,
+    data: { id: string; role: string; content: string; reasonContent?: string },
+  ) => {
+    const chatKeyData = chatData[key]
+    if (chatKeyData) {
+      let isExist = false
+      chatKeyData.forEach((item) => {
+        if (item.id === data.id) {
+          if (data?.content) {
+            item.content += data.content
+          }
+          if (data?.reasonContent) {
+            item.reasonContent += data.reasonContent
+          }
+          isExist = true
+          return
+        }
+      })
+      if (!isExist) {
+        chatData[key].push(data)
+      }
     } else {
       chatData[key] = [data]
     }
   }
 
+  const setAddChatId = (id: string) => {
+    addChatId.value = id
+  }
   return {
     userInfo,
     intelligentAgents,
     dialogHistoryList,
     chatData,
+    addChatId,
     addDialogHistory,
     addIntelligentAgent,
     removeDialogHistory,
     removeIntelligentAgent,
     addChatData,
+    setAddChatId,
   }
 })

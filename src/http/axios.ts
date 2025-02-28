@@ -1,61 +1,128 @@
-import type { AxiosInstance, AxiosRequestConfig } from 'axios'
+import type { AxiosInstance } from 'axios'
 import axios from 'axios'
+import { ElMessage } from 'element-plus'
 
-import { getToken } from '@/uitls'
-
-/** 创建请求实例 */
-function createInstance() {
-  // 创建一个 axios 实例命名为 instance
-  const instance = axios.create()
-  // 请求拦截器
-  instance.interceptors.request.use(
-    // 发送之前
-    (config) => config,
-    // 发送失败
-    (error) => Promise.reject(error),
-  )
-  // 响应拦截器（可根据具体业务作出相应的调整）
-  instance.interceptors.response.use(
-    (response) => {
-      const apiData = response.data
-      const responseType = response.request?.responseType
-      if (responseType === 'blob' || responseType === 'arraybuffer') return response
-
-      return Promise.reject(new Error('Error'))
-    },
-    (error) => {
-      return Promise.reject(error)
-    },
-  )
-  return instance
+const defaultConfig = {
+  timeout: 60000,
+  baseURL: '/apis/',
+  maxContentLength: 20000,
+  validateStatus: () => true,
+  maxBodyLength: Infinity,
+  headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
 }
 
-function createRequest(instance: AxiosInstance) {
-  return <T>(config: AxiosRequestConfig): Promise<T> => {
-    const token = getToken()
+class CustomAxiosInstance {
+  instance: AxiosInstance
+  apiList: Record<string, any>
 
-    const defaultConfig: AxiosRequestConfig = {
-      baseURL: import.meta.env.VITE_BASE_URL,
+  constructor() {
+    this.instance = axios.create(defaultConfig)
+    this.apiList = Object.create(null)
+  }
 
-      headers: {
-        Authorization: token ? `Bearer ${token}` : undefined,
-        'Content-Type': 'application/json',
+  init(config: Record<string, any>, request: any = null, response: any = null) {
+    const { apiList = {} } = config
+
+    this.apiList = { ...this.apiList, ...apiList }
+
+    this.instance.interceptors.request.use(function (config) {
+      return request && typeof request === 'function' ? request(config) : config
+    })
+
+    this.instance.interceptors.response.use(
+      async (response) => {
+        const apiData = response.data
+        const responseType = response.request?.responseType
+        console.log('response', response)
+
+        if (responseType === 'blob' || responseType === 'arraybuffer') return apiData
+
+        if (response.status !== 200) {
+          // ElMessage.error(response?.statusText || '请求异常')
+          return Promise.reject(new Error('请求异常'))
+        } else {
+          return response.data
+        }
       },
+      (error) => {
+        console.log('error', error)
 
-      data: {},
-      timeout: 5000,
-      withCredentials: false,
-    }
+        const status = error?.status
+        const message = error?.message
+        switch (status) {
+          case 400:
+            error.message = '请求错误'
+            break
+          case 401:
+            error.message = message || '未授权'
+            break
+          case 403:
+            error.message = message || '拒绝访问'
+            break
+          case 404:
+            error.message = '请求地址出错'
+            break
+          case 408:
+            error.message = '请求超时'
+            break
+          case 500:
+            error.message = '服务器内部错误'
+            break
+          case 501:
+            error.message = '服务未实现'
+            break
+          case 502:
+            error.message = '网关错误'
+            break
+          case 503:
+            error.message = '服务不可用'
+            break
+          case 504:
+            error.message = '网关超时'
+            break
+          case 505:
+            error.message = 'HTTP 版本不受支持'
+            break
+        }
+        ElMessage.error({
+          message: error.message,
+          plain: true,
+        })
+        return Promise.reject(error)
+      },
+    )
 
-    return instance({
-      ...defaultConfig,
-      ...config,
+    return this.instance
+  }
+
+  request(
+    name: string,
+    data: Record<string, any> = Object.create(null),
+    options: Record<string, any> = Object.create(null),
+  ) {
+    return new Promise((resolve, reject) => {
+      const api = this.apiList[name]
+      if (!api) {
+        reject(new Error(`API ${name} not found`))
+      }
+      const config = {
+        ...api,
+        data,
+        ...options,
+      }
+
+      this.instance
+        .request(config)
+        .then((res) => {
+          resolve(res)
+        })
+        .catch((error) => {
+          reject(error)
+        })
     })
   }
 }
 
-/** 用于请求的实例 */
-const instance = createInstance()
+const axiosInstance = new CustomAxiosInstance()
 
-/** 用于请求的方法 */
-export const request = createRequest(instance)
+export default axiosInstance

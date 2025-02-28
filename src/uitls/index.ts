@@ -9,5 +9,13 @@ export function uuid(hasHyphen = false) {
 }
 
 export function getToken() {
-  return 'sk-123'
+  return 'sk-a6df182f06d049a895cfc91692a27444'
+}
+
+export const scrollIntoView = (eleId: string) => {
+  const ele = document.getElementById(eleId)
+  if (!ele) return
+  setTimeout(() => {
+    ele.scrollIntoView({ behavior: 'smooth', block: 'end' })
+  })
 }
