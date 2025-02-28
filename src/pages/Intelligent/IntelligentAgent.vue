@@ -66,7 +66,7 @@ const handleTxtSend = (data: any) => {
       scrollIntoView(SCROLL_TARGET_ELEMENT_ID)
     }
 
-    // fetchChat(config, fetchCB)
+    fetchChat(config, fetchCB)
   }
 }
 </script>

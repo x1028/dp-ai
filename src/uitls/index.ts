@@ -9,7 +9,7 @@ export function uuid(hasHyphen = false) {
 }
 
 export function getToken() {
-  return 'sk-a6df182f06d049a895cfc91692a27444'
+  return '123'
 }
 
 export const scrollIntoView = (eleId: string) => {
